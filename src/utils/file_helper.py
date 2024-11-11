@@ -1,5 +1,7 @@
 import os
 import shutil
+import json
+import re
 from .logger import Logger
 
 class FileHelper:
@@ -8,9 +10,13 @@ class FileHelper:
         
     def ensure_dir(self, directory):
         """Create directory if it doesn't exist"""
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-            self.logger.debug(f"Created directory: {directory}")
+        if directory:
+            # Normalize the path to handle any path separators
+            directory = os.path.normpath(directory)
+            if not os.path.exists(directory):
+                os.makedirs(directory, exist_ok=True)
+                self.logger.debug(f"Created directory: {directory}")
+            return directory  # Return the normalized path
             
     def clean_filename(self, filename):
         """Remove invalid characters from filename"""
@@ -44,3 +50,23 @@ class FileHelper:
         except Exception as e:
             self.logger.error(f"Failed to cleanup directory {directory}: {str(e)}")
             raise 
+            
+    def save_json(self, filepath: str, data: dict):
+        """
+        Save data to a JSON file
+        Args:
+            filepath (str): Path to save the JSON file
+            data (dict): Data to save
+        """
+        try:
+            # Ensure directory exists
+            directory = os.path.dirname(filepath)
+            if directory:
+                os.makedirs(directory, exist_ok=True)
+            
+            # Write JSON file
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+                
+        except Exception as e:
+            raise Exception(f"Failed to save JSON file: {str(e)}")

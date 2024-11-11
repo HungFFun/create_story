@@ -6,6 +6,12 @@ from ..utils.performance_monitor import PerformanceMonitor
 from ..utils.validation_helper import ValidationHelper
 from tenacity import retry, stop_after_attempt, wait_exponential # type: ignore
 from datetime import datetime
+from proglog import ProgressBarLogger
+
+class MyBarLogger(ProgressBarLogger):
+    def bars_callback(self, bar, attr, value, old_value=None):
+        # Do nothing - this keeps progress bar from appearing
+        pass
 
 class VideoProcessor:
     def __init__(self, output_dir, fps=24, video_codec='libx264', audio_codec='aac'):
@@ -17,8 +23,9 @@ class VideoProcessor:
         self.fps = fps
         self.video_codec = video_codec
         self.audio_codec = audio_codec
+        self.progress_logger = MyBarLogger()
         
-    def create_video(self, audio_files, background_image, story_name):
+    def create_video(self, audio_files, background_image, output_dir):
         """
         Create complete video from audio files and background image
         """
@@ -27,8 +34,8 @@ class VideoProcessor:
             self.validator.validate_files_exist([background_image, *audio_files])
             
             # Create output directories
-            segments_dir = os.path.join(self.output_dir, story_name, "segments")
-            final_dir = os.path.join(self.output_dir, story_name, "final")
+            segments_dir = os.path.join(output_dir, "segments")
+            final_dir = os.path.join(output_dir, "final")
             self.file_helper.ensure_dir(segments_dir)
             self.file_helper.ensure_dir(final_dir)
             
@@ -55,15 +62,12 @@ class VideoProcessor:
                 audio_clip.close()
             
             metadata = {
-                'title': story_name,
+                'title': "Story Name",
                 'creation_date': datetime.now().isoformat(),
                 'segments': len(audio_files),
                 'duration': total_duration
             }
-            self.file_helper.save_json(
-                os.path.join(final_dir, 'metadata.json'),
-                metadata
-            )
+            self.file_helper.save_json(filepath=os.path.join(final_dir, 'metadata.json'), data=metadata)
             
             self.logger.info(f"Video creation completed: {final_video_path}")
             return final_video_path
@@ -92,7 +96,7 @@ class VideoProcessor:
                     # Combine image and audio
                     video = image_clip.set_audio(audio_clip)
                     
-                    # Write video file
+                    # Write video file with custom logger
                     video.write_videofile(
                         video_path,
                         codec=self.video_codec,
@@ -101,7 +105,7 @@ class VideoProcessor:
                         remove_temp=True,
                         threads=4,  # Multithread support
                         bitrate="2000k",  # Video quality
-                        logger=self.logger.info  # Progress logging
+                        logger=self.progress_logger
                     )
                     
                     # Clean up
@@ -130,7 +134,8 @@ class VideoProcessor:
             final_video.write_videofile(
                 output_path,
                 codec='libx264',
-                audio_codec='aac'
+                audio_codec='aac',
+                logger=self.progress_logger
             )
             return output_path
             

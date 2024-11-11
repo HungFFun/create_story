@@ -31,13 +31,12 @@ class ValidationHelper:
             if not os.path.isdir(dir_path):
                 raise ValueError(f"Required directory missing: {dir_path}")
                 
-    def validate_output_structure(self, story_dir):
-        """Validate output directory structure"""
-        required_dirs = ['text', 'audio', 'segments', 'final']
-        for dir_name in required_dirs:
-            dir_path = os.path.join(story_dir, dir_name)
-            if not os.path.isdir(dir_path):
-                raise ValueError(f"Output directory missing: {dir_path}")
+    def validate_output_structure(self, dir_path):
+        dir_path = os.path.normpath(dir_path)
+        self.logger.debug(f"Validating directory exists: {dir_path}")
+        self.logger.debug(f"Directory exists: {os.path.exists(dir_path)}")
+        if not os.path.exists(dir_path):
+            raise ValueError(f"Output directory missing: {dir_path}")
                 
     def validate_video_output(self, video_path):
         """Validate video file"""
