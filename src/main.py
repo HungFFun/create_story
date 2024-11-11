@@ -26,7 +26,7 @@ class StoryVideoGenerator:
         self.video_processor = VideoProcessor("output")
         self.file_helper = FileHelper()
 
-    def process_story(self, doc_id, background_image):
+    def process_story(self, doc_id: str, background_image: str) -> str:
         """
         Process complete story from Google Doc to final video
         """
@@ -48,12 +48,40 @@ class StoryVideoGenerator:
 
                 # Generate audio files
                 with self.performance.measure_time("Generating audio"):
-                    audio_files = self.tts_service.process_files(text_files, story_name)
+                    audio_segments_dir = os.path.join("output", story_name, "segments")
+                    audio_final_dir = os.path.join("output", story_name, "final")
+                    
+                    # Ensure directories exist
+                    os.makedirs(audio_segments_dir, exist_ok=True)
+                    os.makedirs(audio_final_dir, exist_ok=True)
+
+                    audio_files = []
+                    for i, text_file in enumerate(text_files, 1):
+                        # Save segment audio to segments folder
+                        segment_audio = os.path.join(audio_segments_dir, f"part{i:03d}.mp3")
+                        self.tts_service.generate_audio(text_file, segment_audio)
+                        audio_files.append(segment_audio)
+
+                    # Merge all audio segments into final audio
+                    final_audio = os.path.join(audio_final_dir, "complete_story.mp3")
+                    self.tts_service.merge_audio_files(audio_files, final_audio)
+
+                # Create necessary directories
+                story_dir = os.path.join("output", f"story_{doc_id}")
+                text_dir = os.path.join(story_dir, "text")
+                audio_dir = os.path.join(story_dir, "audio")
+                segments_dir = os.path.join(story_dir, "segments")
+                final_dir = os.path.join(story_dir, "final")
+                
+                self.file_helper.ensure_dir(text_dir)
+                self.file_helper.ensure_dir(audio_dir)
+                self.file_helper.ensure_dir(segments_dir)
+                self.file_helper.ensure_dir(final_dir)
 
                 # Create final video
                 with self.performance.measure_time("Creating video"):
                     final_video = self.video_processor.create_video(
-                        audio_files, background_image, story_name
+                        [final_audio], background_image, story_name
                     )
 
                 # Validate output
@@ -64,7 +92,8 @@ class StoryVideoGenerator:
 
                 # Generate performance report
                 self.logger.info(self.performance.generate_report())
-
+                
+                self.logger.info(f"Video creation completed: {final_video}")
                 return final_video
 
         except Exception as e:
