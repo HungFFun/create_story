@@ -4,14 +4,19 @@ from ..utils.logger import Logger
 from ..utils.file_helper import FileHelper
 from ..utils.performance_monitor import PerformanceMonitor
 from ..utils.validation_helper import ValidationHelper
+from tenacity import retry, stop_after_attempt, wait_exponential # type: ignore
+from datetime import datetime
 
 class VideoProcessor:
-    def __init__(self, output_dir):
+    def __init__(self, output_dir, fps=24, video_codec='libx264', audio_codec='aac'):
         self.logger = Logger(__name__)
         self.file_helper = FileHelper()
         self.performance = PerformanceMonitor()
         self.validator = ValidationHelper()
         self.output_dir = output_dir
+        self.fps = fps
+        self.video_codec = video_codec
+        self.audio_codec = audio_codec
         
     def create_video(self, audio_files, background_image, story_name):
         """
@@ -41,6 +46,24 @@ class VideoProcessor:
                     video_segments,
                     os.path.join(final_dir, "complete_story.mp4")
                 )
+            
+            # Add metadata
+            total_duration = 0
+            for audio_file in audio_files:
+                audio_clip = AudioFileClip(audio_file)
+                total_duration += audio_clip.duration
+                audio_clip.close()
+            
+            metadata = {
+                'title': story_name,
+                'creation_date': datetime.now().isoformat(),
+                'segments': len(audio_files),
+                'duration': total_duration
+            }
+            self.file_helper.save_json(
+                os.path.join(final_dir, 'metadata.json'),
+                metadata
+            )
             
             self.logger.info(f"Video creation completed: {final_video_path}")
             return final_video_path
@@ -72,10 +95,13 @@ class VideoProcessor:
                     # Write video file
                     video.write_videofile(
                         video_path,
-                        codec='libx264',
-                        audio_codec='aac',
+                        codec=self.video_codec,
+                        audio_codec=self.audio_codec,
                         temp_audiofile='temp-audio.m4a',
-                        remove_temp=True
+                        remove_temp=True,
+                        threads=4,  # Multithread support
+                        bitrate="2000k",  # Video quality
+                        logger=self.logger.info  # Progress logging
                     )
                     
                     # Clean up
@@ -91,29 +117,35 @@ class VideoProcessor:
                 
         return video_paths
         
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     def _merge_segments(self, video_paths, output_path):
-        """Merge all video segments into final video"""
+        """Merge all video segments into final video with retry logic"""
+        clips = []
         try:
-            # Load all video clips
-            clips = [VideoFileClip(path) for path in video_paths]
+            for path in video_paths:
+                clip = VideoFileClip(path)
+                clips.append(clip)
             
-            # Concatenate clips
             final_video = concatenate_videoclips(clips)
-            
-            # Write final video
             final_video.write_videofile(
                 output_path,
                 codec='libx264',
                 audio_codec='aac'
             )
-            
-            # Clean up
-            final_video.close()
-            for clip in clips:
-                clip.close()
-                
             return output_path
             
         except Exception as e:
             self.logger.error(f"Failed to merge video segments: {str(e)}")
-            raise 
+            raise
+            
+        finally:
+            # Ensure all clips are closed
+            for clip in clips:
+                try:
+                    clip.close()
+                except:
+                    pass
+            try:
+                final_video.close()
+            except:
+                pass

@@ -3,14 +3,17 @@ from openai import OpenAI
 from ..utils.logger import Logger
 from ..utils.file_helper import FileHelper
 from ..utils.performance_monitor import PerformanceMonitor
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 class TTSService:
-    def __init__(self, api_key, output_dir):
+    def __init__(self, api_key, output_dir, model="tts-1", voice="alloy"):
         self.logger = Logger(__name__)
         self.file_helper = FileHelper()
         self.performance = PerformanceMonitor()
         self.client = OpenAI(api_key=api_key)
         self.output_dir = output_dir
+        self.model = model
+        self.voice = voice
         
     def process_files(self, text_files, story_name):
         """
@@ -43,12 +46,17 @@ class TTSService:
             self.logger.error(f"Error in TTS processing: {str(e)}")
             raise
             
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     def _generate_speech(self, text, output_path):
-        """Generate speech from text using OpenAI API"""
+        """Generate speech from text using OpenAI API with retry logic"""
         try:
+            # Validate input text
+            if not text or not text.strip():
+                raise ValueError("Empty text input")
+                
             response = self.client.audio.speech.create(
-                model="tts-1",
-                voice="alloy",
+                model=self.model,
+                voice=self.voice,
                 input=text
             )
             
@@ -58,5 +66,7 @@ class TTSService:
             self.logger.debug(f"Generated audio file: {output_path}")
             
         except Exception as e:
-            self.logger.error(f"Failed to generate speech: {str(e)}")
+            # Clean up partial file if it exists
+            if os.path.exists(output_path):
+                os.remove(output_path)
             raise 

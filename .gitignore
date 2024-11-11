@@ -52,3 +52,10 @@ temp-audio.m
 *.wav
 *.tmp
 *.temp 
+
+# Credentials
+*.json
+credentials/
+service-account*.json
+gcp-credentials*.json
+google-credentials*.json
