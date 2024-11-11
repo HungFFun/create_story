@@ -1,11 +1,16 @@
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from utils.logger import Logger
+from ..utils.logger import Logger
+import os
 
 
 class GoogleDocsService:
-    def __init__(self, credentials_path):
+    def __init__(self, credentials_path=None):
+        if credentials_path is None:
+            credentials_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
+                                          'credentials', 
+                                          'optimum-door-441415-f6-9c330857586c.json')
         self.logger = Logger(__name__)
         try:
             self.credentials = service_account.Credentials.from_service_account_file(
