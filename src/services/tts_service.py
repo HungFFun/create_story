@@ -1,15 +1,13 @@
-import os
 from openai import OpenAI
-from ..utils.logger import Logger
-from ..utils.file_helper import FileHelper
-from ..utils.performance_monitor import PerformanceMonitor
+from src.config.tts_config import TTSConfig
 from tenacity import retry, stop_after_attempt, wait_exponential
+import os
 
 class TTSService:
     def __init__(self, api_key: str, output_dir: str):
         self.client = OpenAI(api_key=api_key)
         self.output_dir = output_dir
-        self.max_chars = 4000  # Slightly less than 4096 to be safe
+        self.config = TTSConfig()
 
     def split_text(self, text: str) -> list[str]:
         """Split text into chunks that are small enough for the API"""
@@ -20,7 +18,7 @@ class TTSService:
         sentences = text.split('.')
         
         for sentence in sentences:
-            if len(current_chunk) + len(sentence) < self.max_chars:
+            if len(current_chunk) + len(sentence) < self.config.MAX_CHARS:
                 current_chunk += sentence + '.'
             else:
                 if current_chunk:
@@ -32,7 +30,14 @@ class TTSService:
             
         return chunks
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+    @retry(
+        stop=stop_after_attempt(TTSConfig.MAX_RETRIES),
+        wait=wait_exponential(
+            multiplier=TTSConfig.RETRY_MULTIPLIER,
+            min=TTSConfig.RETRY_MIN_WAIT,
+            max=TTSConfig.RETRY_MAX_WAIT
+        )
+    )
     def generate_audio(self, text_file: str, output_file: str) -> None:
         """
         Generates audio from text file and saves it to the output file
@@ -50,10 +55,10 @@ class TTSService:
         # Generate audio for each chunk
         temp_files = []
         for i, chunk in enumerate(chunks):
-            temp_file = f"{output_file}.part{i}.mp3"
+            temp_file = f"{output_file}.part{i}.{self.config.AUDIO_FORMAT}"
             response = self.client.audio.speech.create(
-                model="tts-1",
-                voice="alloy",
+                model=self.config.MODEL,
+                voice=self.config.VOICE,
                 input=chunk
             )
             response.stream_to_file(temp_file)
@@ -89,4 +94,4 @@ class TTSService:
             segment = AudioSegment.from_mp3(audio_file)
             combined += segment
             
-        combined.export(output_file, format="mp3")
+        combined.export(output_file, format=self.config.AUDIO_FORMAT)
