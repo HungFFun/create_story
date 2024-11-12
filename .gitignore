@@ -59,3 +59,15 @@ credentials/
 service-account*.json
 gcp-credentials*.json
 google-credentials*.json
+
+# Ignore contents of logs folder
+logs/*
+!logs/.gitkeep
+
+# Ignore contents of credentials folder
+credentials/*
+!credentials/.gitkeep
+
+# Ignore contents of output folder
+output/*
+!output/.gitkeep
