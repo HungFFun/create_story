@@ -1,6 +1,6 @@
 class TTSConfig:
     # Voice options: alloy, echo, fable, onyx, nova, shimmer
-    VOICE = "onyx"
+    VOICE = "echo"
     MODEL = "tts-1"
     MAX_CHARS = 4000
 

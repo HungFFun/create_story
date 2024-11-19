@@ -50,7 +50,7 @@ class StoryVideoGenerator:
                 with self.performance.measure_time("Generating audio"):
                     audio_segments_dir = os.path.join("output", story_name, "segments")
                     audio_final_dir = os.path.join("output", story_name, "final")
-                    
+
                     # Ensure directories exist
                     os.makedirs(audio_segments_dir, exist_ok=True)
                     os.makedirs(audio_final_dir, exist_ok=True)
@@ -58,7 +58,9 @@ class StoryVideoGenerator:
                     audio_files = []
                     for i, text_file in enumerate(text_files, 1):
                         # Save segment audio to segments folder
-                        segment_audio = os.path.join(audio_segments_dir, f"part{i:03d}.mp3")
+                        segment_audio = os.path.join(
+                            audio_segments_dir, f"part{i:03d}.mp3"
+                        )
                         self.tts_service.generate_audio(text_file, segment_audio)
                         audio_files.append(segment_audio)
 
@@ -72,7 +74,7 @@ class StoryVideoGenerator:
                 audio_dir = os.path.join(story_dir, "audio")
                 segments_dir = os.path.join(story_dir, "segments")
                 final_dir = os.path.join(story_dir, "final")
-                
+
                 self.file_helper.ensure_dir(text_dir)
                 self.file_helper.ensure_dir(audio_dir)
                 self.file_helper.ensure_dir(segments_dir)
@@ -92,7 +94,7 @@ class StoryVideoGenerator:
 
                 # Generate performance report
                 self.logger.info(self.performance.generate_report())
-                
+
                 self.logger.info(f"Video creation completed: {final_video}")
                 return final_video
 
@@ -103,11 +105,10 @@ class StoryVideoGenerator:
 
 # Example usage
 # Extract doc_id from the URL
-doc_id = "1b94DdmQC0B-wQ4QcZvsxhk9SWpzodzPhNt0CipIRGNQ"
+doc_id = "1_kOONJi4xRDPoTk-5LSD6R_dGULuZM7lUg9xM1XIv3k"
 
 generator = StoryVideoGenerator()
 video_path = generator.process_story(
-    doc_id=doc_id,
-    background_image='assets/background.jpg'
+    doc_id=doc_id, background_image="assets/background.jpg"
 )
 print(f"Video generated successfully: {video_path}")
